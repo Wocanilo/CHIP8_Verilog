@@ -30,7 +30,7 @@ initial begin
 		ROM[i] = 0;
 	end
 	$display("Loading rom.");
-	$readmemb("Factorial.b", ROM, 512); // Cargamos la rom en memoria
+	$readmemb("Chip8Test.b", ROM, 512); // Cargamos la rom en memoria
 end
 
 //Fin Memoria
