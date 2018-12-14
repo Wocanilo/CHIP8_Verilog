@@ -1,16 +1,15 @@
 `timescale 1ns / 1ps
-module cpu_test;
+module cpu_test(
 
-	input clk;
-	input [7:0] read_data, salida;
-
+	input clk
+	);
 	reg test_clk;
 
 
 	// "Conectamos" las salidas de nuestra prueba a las entradas de la memoria
 	assign clk = test_clk;
 
-	cpu uut(.clk(clk), .salida(salida));
+	CPU uut(.clk(clk));
 
 	always begin
 		#5 test_clk = ~test_clk;
@@ -22,10 +21,9 @@ module cpu_test;
 
 		$dumpfile("memory.vcd");
 		$dumpvars(0, cpu_test);
-		$monitor("clk=%b, salida=%b", clk, salida);
 
 
-		#100 $finish;
+		#200 $finish;
 	end
 
 endmodule
