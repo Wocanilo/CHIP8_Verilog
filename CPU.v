@@ -15,6 +15,7 @@ module CPU(
 	reg [7:0] registers[0:15];
 	reg [15:0] pc = 0; // Contador de programa
 	reg skip = 0; // Permite saltar la siguiente instruccion
+	reg halt = 0; // Permite detener la CPU
 	reg [15:0] stack[0:15]; 
 	reg [3:0] stack_pointer = 0; // Profundidad actual del stack.
 	reg [7:0] delay_timer = 0;
@@ -64,11 +65,12 @@ module CPU(
 	
 	always @(posedge clk)
 		begin
-			pc <= pc + 'b10;
+			if (pc == 'd4096) halt <= 1;
+			if (halt == 0) pc <= pc + 'b10;
 			{op, arg_x, arg_y, arg_z} <= c_read_data;
 			
 			// Explicacion de las instrucciones de: http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
-			if(skip == 0)
+			if(skip == 0 && halt == 0)
 				begin
 					case(op)
 						4'd0: // The interpreter sets the program counter to the address at the top of the stack, then subtracts 1 from the stack pointer.
@@ -124,7 +126,6 @@ module CPU(
 					endcase
 				end
 				else skip <= 0;
-				$monitor("clk=%b, PC=%hex, OP=%h V0=%b, V1=%b, V2=%b, V3=%b, V4=%b, carry=%b, skip=%b, stack_pointer=%b, stack_0=%h, I=%h", clk, pc, c_read_data, registers[0], registers[1], registers[2], registers[3], registers[4], registers[15], skip, stack_pointer, stack[0], I);
 		end
 
 
