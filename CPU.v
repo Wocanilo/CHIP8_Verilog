@@ -1,15 +1,28 @@
  `timescale 1ns / 1ps
 
-module CPU(
+module Hertz(
 	input clk,
+	output clk_slow,
 	output wire [7:0] c_addr, // Direccion de memoria
-	output [15:0] c_read_data // Contenido leido
+	output [15:0] c_read_data, // Contenido leido
+	output reg [15:0] pio,
+	output [3:0] random
 	);
-	 
+		
 	memory ROM(
 		.clk(clk),
 		.read_data(c_read_data),
 		.addr(c_addr)
+	);
+	
+	clock_divider clk_divider(
+		.clk_50mhz(clk),
+		.clk_1hz(clk_slow)
+    );
+	 
+	four_bit_shift_register numberGenerator(
+		.clk(clk_slow),
+		.number(random)
 	);
 	
 	reg [7:0] registers[0:15];
@@ -61,10 +74,12 @@ module CPU(
 		stack[13] = 0;
 		stack[14] = 0;
 		stack[15] = 0;
+		pio = 4'b0;
 	end
 	
-	always @(posedge clk)
+	always @(posedge clk_slow)
 		begin
+			if(delay_timer > 0) delay_timer <= delay_timer - 'b1;
 			if (pc == 'd4096) halt <= 1;
 			if (halt == 0) pc <= pc + 'b10;
 			{op, arg_x, arg_y, arg_z} <= c_read_data;
@@ -114,9 +129,28 @@ module CPU(
 						4'hA: I <= {arg_x, arg_y, arg_z};
 						4'hB: pc <= {arg_x, arg_y, arg_z} + registers[0]; //  The program counter is set to nnn plus the value of V0.
 						4'hC: 
-							begin // Implementar número aleatorio
-								registers[arg_x] <= 'b00001001 & {arg_y, arg_z};
+							begin
+								registers[arg_x] <= random & {arg_y, arg_z};
 							end
+						4'hD:
+							case(arg_x)
+								4'h0: pio[0] <= arg_y;
+								4'h1: pio[1] <= arg_y;
+								4'h2: pio[2] <= arg_y;
+								4'h3: pio[3] <= arg_y;
+								4'h4: pio[4] <= arg_y;
+								4'h5: pio[5] <= arg_y;
+								4'h6: pio[6] <= arg_y;
+								4'h7: pio[7] <= arg_y;
+								4'h8: pio[8] <= arg_y;
+								4'h9: pio[9] <= arg_y;
+								4'ha: pio[10] <= arg_y;
+								4'hb: pio[11] <= arg_y;
+								4'hc: pio[12] <= arg_y;
+								4'hd: pio[13] <= arg_y;
+								4'he: pio[14] <= arg_y;
+								4'hf: pio[15] <= arg_y;
+							endcase
 						4'hF:
 							case(arg_z)
 								4'd5: delay_timer <= registers[arg_x]; // DT is set equal to the value of Vx.
