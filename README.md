@@ -3,6 +3,7 @@ Hertz is a CPU based on the Chip8 instruction set. It implements all non-graphic
 
 ## Instruction set
 (Source: [Cowgod's Chip-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM))
+
 | Instruction | Mnemonic | Human|
 |--|--|--|
 | _1nnn_ | _JP addr_ |_PC = nnn_|
