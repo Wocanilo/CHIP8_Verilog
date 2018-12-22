@@ -2,27 +2,22 @@
 
 module Hertz(
 	input clk,
-	output clk_slow,
 	output wire [7:0] c_addr, // Direccion de memoria
 	output [15:0] c_read_data, // Contenido leido
 	output reg [15:0] pio,
-	output [3:0] random
+	output [3:0] random,
+	input  [3:0] buttons
 	);
-		
+	 
+	four_bit_shift_register numberGenerator(
+		.clk(clk),
+		.number(random)
+	);
+	
 	memory ROM(
 		.clk(clk),
 		.read_data(c_read_data),
 		.addr(c_addr)
-	);
-	
-	clock_divider clk_divider(
-		.clk_50mhz(clk),
-		.clk_1hz(clk_slow)
-    );
-	 
-	four_bit_shift_register numberGenerator(
-		.clk(clk_slow),
-		.number(random)
 	);
 	
 	reg [7:0] registers[0:15];
@@ -34,6 +29,9 @@ module Hertz(
 	reg [7:0] delay_timer = 0;
 	reg [15:0] I = 0;
 	assign c_addr = pc;
+	reg waiting_keypress = 0;
+	reg change_pc = 0;
+	reg [15:0] temp_pc = 0;
 
 	//Instrucciones
 	reg [3:0]op = 0; 
@@ -75,13 +73,21 @@ module Hertz(
 		stack[14] = 0;
 		stack[15] = 0;
 		pio = 4'b0;
+		waiting_keypress = 0;
+		change_pc = 0;
 	end
 	
-	always @(posedge clk_slow)
+	always @(posedge clk)
 		begin
 			if(delay_timer > 0) delay_timer <= delay_timer - 'b1;
 			if (pc == 'd4096) halt <= 1;
-			if (halt == 0) pc <= pc + 'b10;
+			if (halt == 0 && change_pc == 0) pc <= pc + 'b10;
+			if (change_pc == 1) 
+				begin
+					pc <= temp_pc;
+					change_pc <= 0;
+				end
+			if (halt == 1 && waiting_keypress == 1 && buttons != 0) registers[arg_x] <= buttons;
 			{op, arg_x, arg_y, arg_z} <= c_read_data;
 			
 			// Explicacion de las instrucciones de: http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
@@ -90,14 +96,20 @@ module Hertz(
 					case(op)
 						4'd0: // The interpreter sets the program counter to the address at the top of the stack, then subtracts 1 from the stack pointer.
 							if (arg_z == 4'hE) begin
-								pc <= stack[stack_pointer - 3'd1];
+								change_pc <= 1;
+								temp_pc <= stack[stack_pointer - 3'd1];
 								stack_pointer <= stack_pointer - 3'd1;
 							end
-						4'd1: pc <= {arg_x, arg_y, arg_z}; // 1nnn - Jump to location nnn.
+						4'd1:
+							begin
+								change_pc <= 1;
+								temp_pc <= {arg_x, arg_y, arg_z}; // 1nnn - Jump to location nnn.
+							end
 						4'd2: // The interpreter increments the stack pointer, then puts the current PC on the top of the stack. The PC is then set to nnn.
 							begin
 								stack[stack_pointer] <= pc;
-								pc <= {arg_x, arg_y, arg_z};
+								change_pc <= 1;
+								temp_pc <= {arg_x, arg_y, arg_z};
 								stack_pointer <= stack_pointer + 3'd1;
 							end
 						4'd3: if (registers[arg_x] == {arg_y, arg_z}) skip <= 1;  // The interpreter compares register Vx to kk, and if they are equal, increments the program counter by 2.
@@ -127,7 +139,11 @@ module Hertz(
 							endcase
 						4'd9: if(registers[arg_x] != registers[arg_y]) skip <= 1; //  The values of Vx and Vy are compared, and if they are not equal, the program counter is increased by 2.
 						4'hA: I <= {arg_x, arg_y, arg_z};
-						4'hB: pc <= {arg_x, arg_y, arg_z} + registers[0]; //  The program counter is set to nnn plus the value of V0.
+						4'hB: 
+							begin
+								change_pc <= 1;
+								temp_pc <= {arg_x, arg_y, arg_z} + registers[0]; //  The program counter is set to nnn plus the value of V0.
+							end
 						4'hC: 
 							begin
 								registers[arg_x] <= random & {arg_y, arg_z};
@@ -151,11 +167,56 @@ module Hertz(
 								4'he: pio[14] <= arg_y;
 								4'hf: pio[15] <= arg_y;
 							endcase
+						4'hE:
+							case(arg_z)
+								4'hE:
+									case(registers[arg_x])
+										8'h1: skip <= buttons[0];
+										8'h2: skip <= buttons[1];
+										8'h3: skip <= buttons[0] & buttons[1];
+										8'h4: skip <= buttons[2];
+										8'h5: skip <= buttons[2] & buttons[0];
+										8'h6: skip <= buttons[1] & buttons[2];
+										8'h7: skip <= buttons[0] & buttons[1] & buttons[2];
+										8'h8: skip <= buttons[3];
+										8'h9: skip <= buttons[3] & buttons[0];
+										8'hA: skip <= buttons[3] & buttons[1];
+										8'hB: skip <= buttons[3] & buttons[2];
+										8'hC: skip <= buttons[3] & buttons[2] & buttons[0];
+										8'hD: skip <= buttons[3] & buttons[2] & buttons[0];
+										8'hE: skip <= buttons[3] & buttons[2] & buttons[1];
+										8'hF: skip <= buttons[0] & buttons[1] & buttons[2] & buttons[3];
+									endcase
+								4'h1:
+									case(registers[arg_x])
+										8'h1: skip <= ~(buttons[0]);
+										8'h2: skip <= ~(buttons[1]);
+										8'h3: skip <= ~(buttons[0] & buttons[1]);
+										8'h4: skip <= ~(buttons[2]);
+										8'h5: skip <= ~(buttons[2] & buttons[0]);
+										8'h6: skip <= ~(buttons[1] & buttons[2]);
+										8'h7: skip <= ~(buttons[0] & buttons[1] & buttons[2]);
+										8'h8: skip <= ~(buttons[3]);
+										8'h9: skip <= ~(buttons[3] & buttons[0]);
+										8'hA: skip <= ~(buttons[3] & buttons[1]);
+										8'hB: skip <= ~(buttons[3] & buttons[2]);
+										8'hC: skip <= ~(buttons[3] & buttons[2] & buttons[0]);
+										8'hD: skip <= ~(buttons[3] & buttons[2] & buttons[0]);
+										8'hE: skip <= ~(buttons[3] & buttons[2] & buttons[1]);
+										8'hF: skip <= ~(buttons[0] & buttons[1] & buttons[2] & buttons[3]);
+									endcase
+								
+								endcase
 						4'hF:
 							case(arg_z)
 								4'd5: delay_timer <= registers[arg_x]; // DT is set equal to the value of Vx.
 								4'd7: registers[arg_x] <= delay_timer; // The value of DT is placed into Vx.
 								4'hE: I <= I + registers[arg_x];
+								4'hA:
+									begin
+										halt <= 1;
+										waiting_keypress <= 1;
+									end
 							endcase	
 					endcase
 				end

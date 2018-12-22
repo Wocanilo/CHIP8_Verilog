@@ -1,8 +1,9 @@
 ﻿# Hertz (WIP)
-Hertz is a CPU based on the Chip8 instruction set. It implements all non-graphical instructions of the Chip8 besides some exclusive instructions that lets you control circuits via the IO pins of your FPGA. Unlike others CPUs,  Hertz aims to be based on human time, thats why it cycles at 1 hertz.
+Hertz is a CPU based on the Chip8 instruction set. It implements all non-graphical instructions of the Chip8 besides an exclusive instruction that let you control circuits via the IO pins of your FPGA.
 
 ## Instruction set
 (Source: [Cowgod's Chip-8 Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM))
+
 | Instruction | Mnemonic | Human|
 |--|--|--|
 | _1nnn_ | _JP addr_ |_PC = nnn_|
@@ -26,9 +27,12 @@ Hertz is a CPU based on the Chip8 instruction set. It implements all non-graphic
 |_Bnnn_|_JP V0, addr_|_pc = nnn + V0_|
 |_Cxkk_|_RND Vx, byte_|_Vx = random_byte AND kk_|
 |_Dnk0_|_OUT n_|_PIN n = k_|
+|_Ex9E_|_SKP Vx_|_pc += 2 if key in Vx pressed_|
+|_ExA1_|_SKNP Vx_|_pc += 2 if key in Vx not pressed_|
+|_Fx0A_|_LD Vx, K_|_wait keypress, saves value in Vx_|
 |_Fx15_|_LD DT, Vx_|_DT = Vx_|
 |_Fx18_|_LD ST, Vx_|_ST = Vx_|
 |_Fx1E_|_ADD I, Vx_|_I = I + Vx_|
 
 ## Example code
-The repository contains a file named _Chip8Test.binary_ from [Ruby Quiz - Chip-8 (#88)](http://rubyquiz.com/quiz88.html) that lets you test some of the functionalities of the CPU.
+The repository contains a file named _Chip8Test.binary_ that contains the implementation of a voter machine. It will activate the pin vinculated to pio<14> if two or more buttons are pressed.
